@@ -1,0 +1,38 @@
+[
+  {
+    "query": "query {memberTypes {id} user(id: \"50260587-b30c-42d8-97bc-896fa73aa946\") {id}}",
+    "variables": {
+      "additionalProp1": "string",
+      "additionalProp2": "string",
+      "additionalProp3": "string"
+    }
+  },
+  {
+    "query": "query ($userId: UUID!, $profileId: UUID!, $memberTypeId: MemberTypeId!, $postId: UUID!) { memberType(id: $memberTypeId) { id discount postsLimitPerMonth } post(id: $postId) { id title content } user(id: $userId) { id name balance } profile(id: $profileId) { id isMale yearOfBirth } }",
+    "variables": {
+      "userId": "50260587-b30c-42d8-97bc-896fa73aa946",
+      "profileId": "4299a757-60e7-4c3a-99d1-bebcdced3fe8",
+      "memberTypeId": "basic",
+      "postId": "7467a9ed-8258-4012-8764-4ea83f593099"
+    }
+  },
+  {
+    "query": "query ($nullUserId: UUID!, $userWithNullProfileId: UUID!, $profileId: UUID!, $postId: UUID!) { user(id: $nullUserId) { id } post(id: $postId) { id } profile(id: $profileId) { id } userWithNullProfile: user(id: $userWithNullProfileId) { id profile { id } } }",
+    "variables": {
+      "userWithNullProfileId": "50260587-b30c-42d8-97bc-896fa73aa946",
+      "nullUserId": "10260587-b30c-42d8-97bc-896fa73aa946",
+      "profileId": "20260587-b30c-42d8-97bc-896fa73aa946",
+      "postId": "30260587-b30c-42d8-97bc-896fa73aa946"
+    }
+  },
+  {
+    "query": "query { users { id profile { id memberType { id } } posts { id } } }"
+  },
+
+  {
+    "query": "query ($userId: UUID!) { user(id: $userId) { id userSubscribedTo { id subscribedToUser { id } } subscribedToUser { id userSubscribedTo { id } } } }",
+    "variables": {
+      "userId": "25d9962a-0413-47ac-b46f-72e597c619ac"
+    }
+  }
+]

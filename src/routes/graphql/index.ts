@@ -3,107 +3,136 @@ import { createGqlResponseSchema, gqlResponseSchema } from './schemas.js';
 import { graphql, buildSchema } from 'graphql';
 
 const typeDefs = `#graphql
+ scalar UUID
+ scalar MemberTypeId
   type MemberType {
-    id: ID!
+    id: MemberTypeId!
     discount: Float!
     postsLimitPerMonth: Int!
   }
 
   type Post {
-    id: ID!
+    id:UUID!
     title: String!
     content: String!
     author: User!
   }
 
-  type User {
-    id: ID!
-    name: String!
-    balance: Float!
-    profile: Profile!
-    posts: [Post!]!
-  }
+ type User {
+  id: UUID!
+  name: String!
+  balance: Float!
+  profile: Profile
+  posts: [Post]
+  userSubscribedTo: [UserSubscribedTo]
+  subscribedToUser: [SubscribedToUser]
+}
+
+ type UserSubscribedTo {
+id: UUID
+name: String
+balance: Float
+subscribedToUser: [User]
+}
+
+ type SubscribedToUser {
+    id:UUID
+name: String
+balance: Float
+userSubscribedTo: [User] 
+
+}
+
+type SubscribersOnAuthors {
+  subscriber: User
+  author: User
+}
+  
 
   type Profile {
-    id: ID!
+    id: UUID!
     isMale: Boolean!
     yearOfBirth: Int!
     user: User!
     memberType: MemberType!
   }
 
-  type SubscribersOnAuthors {
-    subscriber: User
-    author: User
-
-  }
 
   type Query {
     memberTypes: [MemberType!]!
     posts: [Post!]!
     users: [User!]!
     profiles: [Profile!]!
-    user(id: ID!): User
-    post(id: ID!): Post
-    profile(id: ID!): Profile
+    user (id: UUID!): User
+    post (id: UUID!): Post
+    profile (id: UUID!): Profile
+    memberType (id: MemberTypeId!): MemberType
+   
+
+   
   }
 `;
 
-const resolvers = {
-  Query: {
-    memberTypes: async (parent, args, { prisma }) => {
-      return await prisma.memberType.findMany();
-    },
-    posts: async (parent, args, { prisma }) => {
-      return await prisma.post.findMany();
-    },
-    users: async (parent, args, { prisma }) => {
-      return await prisma.user.findMany();
-    },
-    profiles: async (parent, args, { prisma }) => {
-      return await prisma.profile.findMany();
-    },
-    user: async (parent, { id }, { prisma }) => {
-      return await prisma.user.findUnique({
-        where: { id },
-        include: {
-          profile: {
-            include: {
-              memberType: true,
-            },
-          },
-          posts: true,
-        },
-      });
-    },
-    post: async (parent, { id }, { prisma }) => {
-      return await prisma.post.findUnique({ where: { id } });
-    },
-    profile: async (parent, { id }, { prisma }) => {
-      return await prisma.profile.findUnique({ where: { id } });
-    },
-  },
-};
-
 const rootValue = {
-  memberTypes: async (obj, { prisma }) => {
-    // console.log('obj------>', obj);
-    // console.log('prisma------>', prisma);
-    // console.log('args------>', args);
+  user: async ({ id }, { prisma }) => {
+    const user = await prisma.user.findUnique({
+      where: { id },
+      include: {
+        profile: {
+          include: {
+            memberType: true,
+          },
+        },
+        posts: true,
+        userSubscribedTo: true,
+        subscribedToUser: true,
+      },
+    });
+
+    const subscribedToUser = await prisma.user.findMany({
+      where: {
+        userSubscribedTo: {
+          some: {
+            authorId: id,
+          },
+        },
+      },
+    });
+
+    const userSubscribedTo = await prisma.user.findMany({
+      where: {
+        subscribedToUser: {
+          some: {
+            subscriberId: id,
+          },
+        },
+      },
+    });
+
+    console.log(' userSubscribedTo---->>>', userSubscribedTo);
+    const _u = userSubscribedTo.map((u) => {
+      u.subscribedToUser = subscribedToUser;
+      return u;
+    });
+
+    const _s = subscribedToUser.map((s) => {
+      s.userSubscribedTo = userSubscribedTo;
+      return s;
+    });
+    user.userSubscribedTo = _u;
+
+    user.subscribedToUser = _s;
+
+    return user;
+  },
+  memberTypes: async (_, { prisma }) => {
     return await prisma.memberType.findMany();
   },
-  posts: async (parent, { prisma }) => {
+  posts: async (_, { prisma }) => {
     return await prisma.post.findMany();
   },
-  users: async (parent, { prisma }) => {
-    return await prisma.user.findMany();
-  },
-  profiles: async (parent, { prisma }) => {
-    return await prisma.profile.findMany();
-  },
-  user: async (parent, { id }, { prisma }) => {
-    return await prisma.user.findUnique({
-      where: { id },
+  users: async (_, { prisma }) => {
+    return await prisma.user.findMany({
       include: {
         profile: {
           include: {
@@ -114,17 +143,26 @@ const rootValue = {
       },
     });
   },
-  post: async (parent, { id }, { prisma }) => {
+  profiles: async (_, { prisma }) => {
+    return await prisma.profile.findMany();
+  },
+
+  post: async ({ id }, { prisma }) => {
     return await prisma.post.findUnique({ where: { id } });
   },
-  profile: async (parent, { id }, { prisma }) => {
+  profile: async ({ id }, { prisma }) => {
     return await prisma.profile.findUnique({ where: { id } });
   },
+  memberType: async ({ id }, { prisma }) => {
+    return await prisma.memberType.findUnique({ where: { id } });
+  },
 };
+
 const executableSchema = buildSchema(typeDefs);
 
 const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
   const { prisma } = fastify;
+
   fastify.route({
     url: '/',
     method: 'POST',
@@ -136,9 +174,6 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
     },
     async handler(req) {
       const { query, variables } = req.body;
-      // console.log('req.body-->', req.body);
-      // console.log('query-->', query);
-
       const result = await graphql({
         schema: executableSchema,
         source: query,
