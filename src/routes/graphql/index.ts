@@ -109,7 +109,6 @@ const rootValue = {
       },
     });
 
-    console.log(' userSubscribedTo---->>>', userSubscribedTo);
     const _u = userSubscribedTo.map((u) => {
       u.subscribedToUser = subscribedToUser;
       return u;
@@ -177,9 +176,9 @@ const plugin: FastifyPluginAsyncTypebox = async (fastify) => {
       const result = await graphql({
         schema: executableSchema,
         source: query,
-        contextValue: { prisma }, // Pass prisma as context !!!
+        contextValue: { prisma },
         variableValues: variables,
-        rootValue, // Pass resolvers !!!
+        rootValue,
       });
 
       return result;
